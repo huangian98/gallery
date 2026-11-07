@@ -23,6 +23,7 @@ import com.google.ai.edge.gallery.common.cleanUpMediapipeTaskErrorMessage
 import com.google.ai.edge.gallery.common.metrics.InferenceStatus
 import com.google.ai.edge.gallery.common.metrics.MetricsTracker
 import com.google.ai.edge.gallery.common.metrics.asSession
+import com.google.ai.edge.gallery.companion.CompanionEngineGate
 import com.google.ai.edge.gallery.data.Accelerator
 import com.google.ai.edge.gallery.data.ConfigKeys
 import com.google.ai.edge.gallery.data.DEFAULT_MAX_TOKEN
@@ -36,7 +37,6 @@ import com.google.ai.edge.gallery.data.markInitializationFailed
 import com.google.ai.edge.gallery.data.markInitializationStarted
 import com.google.ai.edge.gallery.data.markInitialized
 import com.google.ai.edge.gallery.data.resetInitialization
-import com.google.ai.edge.gallery.data.supportModelBenchmark
 import com.google.ai.edge.gallery.runtime.CleanUpListener
 import com.google.ai.edge.gallery.runtime.EXTRA_CONTEXT_MAX_OUTPUT_TOKENS
 import com.google.ai.edge.gallery.runtime.LlmConversationInstance
@@ -194,6 +194,12 @@ object LlmChatModelHelper : LlmModelHelper {
       )
     // Create an instance of LiteRT LM engine and conversation.
     try {
+      if (!CompanionEngineGate.enterGallery(model.name)) {
+        val error = "Companion is finishing a task. Please try loading this model again shortly."
+        model.markInitializationFailed(error)
+        onDone(error)
+        return
+      }
       val enableBenchmark = false
       ExperimentalFlags.enableBenchmark = enableBenchmark
       ExperimentalFlags.enableSpeculativeDecoding = speculativeDecoding
@@ -231,6 +237,7 @@ object LlmChatModelHelper : LlmModelHelper {
         )
       )
     } catch (e: Exception) {
+      CompanionEngineGate.leaveGallery(model.name)
       val errorMsg = cleanUpMediapipeTaskErrorMessage(e.message ?: "Unknown error")
       model.markInitializationFailed(errorMsg)
       metricsTracker.onModelInitialized()
@@ -306,11 +313,7 @@ object LlmChatModelHelper : LlmModelHelper {
       if (accelerator == Accelerator.NPU || accelerator == Accelerator.TPU) {
         null
       } else {
-        SamplerConfig(
-          topK = topK,
-          topP = topP.toDouble(),
-          temperature = temperature.toDouble(),
-        )
+        SamplerConfig(topK = topK, topP = topP.toDouble(), temperature = temperature.toDouble())
       }
     ExperimentalFlags.enableConversationConstrainedDecoding = enableConversationConstrainedDecoding
     return try {
@@ -370,6 +373,7 @@ object LlmChatModelHelper : LlmModelHelper {
       onCleanUp()
     }
     model.resetInitialization()
+    CompanionEngineGate.leaveGallery(model.name)
 
     onDone()
     Log.d(TAG, "Clean up done.")
@@ -442,7 +446,7 @@ object LlmChatModelHelper : LlmModelHelper {
                   topP = topP.toDouble(),
                   temperature = temperature.toDouble(),
                 )
-              },
+              }
           )
         )
       } else {

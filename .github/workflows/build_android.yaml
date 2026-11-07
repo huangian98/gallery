@@ -3,13 +3,15 @@
   on:
     workflow_dispatch:
     push:
-      branches: [ "main" ]
+      branches: [ "main", "feat/offline-companion" ]
       paths:
         - 'Android/**'
+        - '.github/workflows/build_android.yaml'
     pull_request:
       branches: [ "main" ]
       paths:
         - 'Android/**'
+        - '.github/workflows/build_android.yaml'
   
   jobs:
     build_apk:
@@ -28,6 +30,17 @@
         - name: Install Android SDK Platform 37
           run: echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-37.0"
         - name: Build
-          run: ./gradlew assembleRelease
+          run: ./gradlew :app:testDebugUnitTest :app:assembleRelease
+        - name: Upload installable APK
+          uses: actions/upload-artifact@v4
+          with:
+            name: gallery-companion-apk
+            path: Android/src/app/build/outputs/apk/release/*.apk
+        - name: Upload unit test results
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: unit-test-results
+            path: Android/src/app/build/reports/tests/testDebugUnitTest/
   
   

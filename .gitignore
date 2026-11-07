@@ -1,1 +1,4 @@
 .DS_Store
+
+# Kotlin compiler session state
+Android/src/.kotlin/

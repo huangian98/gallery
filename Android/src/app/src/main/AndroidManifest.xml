@@ -96,6 +96,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name="com.google.ai.edge.gallery.companion.CompanionActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Gallery" />
+
         <!-- Set themes for activities that are used for viewing open source licenses -->
         <activity
             android:name="com.google.android.gms.oss.licenses.OssLicensesMenuActivity"
