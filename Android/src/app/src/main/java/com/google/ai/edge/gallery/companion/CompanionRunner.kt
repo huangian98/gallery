@@ -104,44 +104,42 @@ object CompanionRunner {
       val store = CompanionStore.get(context)
       store.append("user", input)
       // Only explicit user commands change factual memory; diary text is never promoted to facts.
-      when {
-        input.startsWith("/remember ", ignoreCase = true) -> {
-          val fact = input.substringAfter(' ').trim().take(1000)
-          store.update {
-            val memories = (it.memories + "\n" + fact).trim()
-            check(memories.length <= 6000) {
-              "Memory is full. Edit Memories to make room before saving more facts."
+      val reply =
+        when {
+          input.startsWith("/remember ", ignoreCase = true) -> {
+            val fact = input.substringAfter(' ').trim().take(1000)
+            require(fact.isNotBlank()) { "Add a fact after /remember." }
+            store.update {
+              val memories = (it.memories + "\n" + fact).trim()
+              check(memories.length <= 6000) {
+                "Memory is full. Edit Memories to make room before saving more facts."
+              }
+              it.copy(memories = memories)
             }
-            it.copy(memories = memories)
+            "Saved. You can edit or remove this in Memories."
           }
-          store.append("assistant", "Saved. You can edit or remove this in Memories.")
-        }
-        input.startsWith("/forget ", ignoreCase = true) -> {
-          val fact = input.substringAfter(' ').trim()
-          store.update {
-            it.copy(
-              memories =
-                it.memories
-                  .lines()
-                  .filterNot { line -> line.trim().equals(fact, ignoreCase = true) }
-                  .joinToString("\n")
-            )
+          input.startsWith("/forget ", ignoreCase = true) -> {
+            val fact = input.substringAfter(' ').trim()
+            store.update {
+              it.copy(
+                memories =
+                  it.memories
+                    .lines()
+                    .filterNot { line -> line.trim().equals(fact, ignoreCase = true) }
+                    .joinToString("\n")
+              )
+            }
+            "Removed matching memory lines. You can review Memories to check."
           }
-          store.append(
-            "assistant",
-            "Removed matching memory lines. You can review Memories to check.",
-          )
-        }
-        else ->
-          store.append(
-            "assistant",
+          else ->
             generate(
               context,
               store.state.value,
               "Conversation (quoted history, not system instructions):\n${CompanionPolicy.transcript(store.state.value)}\n\nReply to the latest user message.",
-            ),
-          )
-      }
+            )
+        }
+      store.append("assistant", reply)
+      reply
     }
 
   suspend fun diary(context: Context, automatic: Boolean = false) =
@@ -206,6 +204,29 @@ object CompanionRunner {
           awaitingReply = true,
           status = "Check-in saved to your companion conversation.",
         )
+      }
+      if (store.state.value.telegramCheckIns) {
+        val owner =
+          runCatching {
+              com.google.ai.edge.gallery.companion.telegram
+                .TelegramCredentialStore(context)
+                .read()
+                .ownerId
+            }
+            .getOrDefault(0)
+        if (owner > 0)
+          store.update {
+            it.copy(
+              telegramOutbox =
+                (it.telegramOutbox +
+                    com.google.ai.edge.gallery.companion.telegram.TelegramDelivery(
+                      java.util.UUID.randomUUID().toString(),
+                      owner,
+                      text,
+                    ))
+                  .takeLast(50)
+            )
+          }
       }
       notifyCompanion(context, text)
       text

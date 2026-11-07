@@ -76,3 +76,49 @@ cooldown, per-day limits, diary eligibility, context bounds, diary/fact separati
 and the mutual exclusion guard. Device testing is still required for real model
 loading, OEM background restrictions, notification permissions and thermal/battery
 behaviour. Use E2B first and test with the screen off and charging.
+
+## Telegram bridge
+
+In **Companion → Settings → Telegram**, save the token for a dedicated bot you
+created with Telegram's `@BotFather` and **your numeric Telegram account ID**.
+Use a trusted account-ID lookup if needed; a username or phone number is not an ID.
+The bot should have no other listener or webhook. Start the listener while the app
+is open, then send the bot a **new private message** from that account. First
+connection ignores the old update backlog. No token needs to be pasted into this
+chat, a source file, or GitHub settings.
+
+Only the configured account in its own private chat is authorized. Group, channel,
+bot, edited and non-text messages are ignored. This is a single-owner bridge;
+Telegram and phone chats intentionally share the same Companion personality,
+memories, conversation and diary. Available commands:
+
+- `/help` or `/start`: connection guidance.
+- `/remember FACT` and `/forget EXACT FACT`: edit the shared factual memory.
+- `/diary`: return today's saved entry, or generate it from today's conversation.
+- Other text: a normal Companion reply using the selected local model.
+
+Enable **Occasional check-ins** and **Send Companion check-ins through Telegram**
+to forward generated check-ins. Existing quiet hours, limits, unanswered-message
+policy and charging preference still apply. Automatic diaries are saved locally;
+they are not sent until requested. Delivery waits for the listener to be active.
+
+The listener uses long polling over HTTPS and a user-started `remoteMessaging`
+foreground service with a Stop notification. **Stop listener** or its notification
+stops it; it never starts at boot and does not automatically restart after Android
+kills it. Doze, OEM power management, networking and RAM limits can interrupt it.
+It is not an always-available server. The listener runs without keeping Gemma loaded
+between requests; incoming requests and local inference share the same queue/guard.
+
+Bot token and account ID are AES-GCM encrypted with an Android Keystore key in an
+app-private file excluded from backups. Credentials never enter model prompts.
+Telegram message text, pending requests and replies are saved in Companion's local
+store, like other conversations. **Remove Telegram connection** deletes credentials,
+pending delivery and routing state; **Delete companion data** also stops the listener
+and deletes its credentials. Stop before changing credentials/accounts.
+
+Offsets and a pending request/outbox are persisted for recovery. Delivery is
+best-effort: a crash after Telegram accepts a send but before local acknowledgement
+can duplicate that message. A crash during inference can repeat a pending request.
+No incoming message from an unauthorized account is stored in Companion history.
+Live Telegram calls are not exercised by unit tests; validate token access,
+notification/Stop behaviour, screen-off recovery and model replies on your device.

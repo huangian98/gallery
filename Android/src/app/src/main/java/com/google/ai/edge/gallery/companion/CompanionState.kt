@@ -16,6 +16,8 @@
 
 package com.google.ai.edge.gallery.companion
 
+import com.google.ai.edge.gallery.companion.telegram.TelegramDelivery
+import com.google.ai.edge.gallery.companion.telegram.TelegramInput
 import java.time.Instant
 import java.time.ZoneId
 import kotlinx.serialization.Serializable
@@ -33,6 +35,11 @@ data class CompanionEntry(
 
 @Serializable
 data class CompanionState(
+  val telegramOffset: Long = -1,
+  val telegramPending: TelegramInput? = null,
+  val telegramOutbox: List<TelegramDelivery> = emptyList(),
+  val telegramCheckIns: Boolean = false,
+  val telegramLastTick: Long = 0,
   val personality: String =
     "You are Nova, a warm, curious companion with dry humour. Speak naturally, avoid excessive praise, and disagree respectfully. Never invent memories or claim awareness between conversations.",
   val memories: String = "",

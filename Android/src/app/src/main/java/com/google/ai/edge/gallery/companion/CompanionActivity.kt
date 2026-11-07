@@ -56,6 +56,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
+import com.google.ai.edge.gallery.companion.telegram.TelegramSettings
 import com.google.ai.edge.gallery.ui.theme.GalleryTheme
 
 class CompanionActivity : ComponentActivity() {
@@ -254,6 +255,7 @@ private fun CompanionScreen(model: CompanionViewModel, onBack: () -> Unit) {
               "The test bypasses quiet hours and daily limits. Your companion may still choose silence.",
               style = MaterialTheme.typography.bodySmall,
             )
+            TelegramSettings(model, busy)
             OutlinedButton(onClick = { confirmDelete = true }, enabled = !busy) {
               Text("Delete companion data")
             }
