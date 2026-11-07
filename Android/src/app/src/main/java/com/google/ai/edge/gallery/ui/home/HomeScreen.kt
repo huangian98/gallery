@@ -21,6 +21,7 @@ package com.google.ai.edge.gallery.ui.home
 // import com.google.ai.edge.gallery.ui.preview.PreviewModelManagerViewModel
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.BackHandler
@@ -60,8 +61,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ListAlt
 import androidx.compose.material.icons.rounded.Error
-import androidx.compose.material.icons.rounded.Flag
-import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -118,6 +117,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.google.ai.edge.gallery.GalleryTopAppBar
 import com.google.ai.edge.gallery.R
+import com.google.ai.edge.gallery.companion.CompanionActivity
 import com.google.ai.edge.gallery.data.AppBarAction
 import com.google.ai.edge.gallery.data.AppBarActionType
 import com.google.ai.edge.gallery.data.BuiltInTaskId
@@ -132,6 +132,7 @@ import com.google.ai.edge.gallery.ui.common.tos.AppTosDialog
 import com.google.ai.edge.gallery.ui.common.tos.TosViewModel
 import com.google.ai.edge.gallery.ui.modelmanager.ModelManagerViewModel
 import com.google.ai.edge.gallery.ui.theme.customColors
+import java.io.File
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -327,7 +328,26 @@ fun HomeScreen(
                 )
               }
               Spacer(modifier = Modifier.height(16.dp))
-              Row(modifier = Modifier.fillMaxWidth()) {
+              TextButton(
+                onClick = {
+                  val models =
+                    uiState.tasks
+                      .flatMap { it.models }
+                      .mapNotNull { model ->
+                        runCatching { model.name to model.getPath(context) }.getOrNull()
+                      }
+                      .filter { (_, path) -> path.endsWith(".litertlm") && File(path).isFile }
+                      .distinctBy { it.second }
+                  context.startActivity(
+                    Intent(context, CompanionActivity::class.java).apply {
+                      putStringArrayListExtra("modelNames", ArrayList(models.map { it.first }))
+                      putStringArrayListExtra("modelPaths", ArrayList(models.map { it.second }))
+                    }
+                  )
+                  scope.launch { drawerState.close() }
+                }
+              ) {
+                Text("Companion · personality, memory & diary")
               }
             }
           }
@@ -415,9 +435,7 @@ fun HomeScreen(
               Column(modifier = Modifier.fillMaxWidth()) {
                 var selectedCategoryIndex by remember { mutableIntStateOf(0) }
                 val isSpeechHighlightEnabled =
-                  modelManagerViewModel.getTaskById(
-                    BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER
-                  ) != null
+                  modelManagerViewModel.getTaskById(BuiltInTaskId.LLM_XR_LANGUAGE_TEACHER) != null
 
                 // App title and intro text.
                 Column(
@@ -776,10 +794,11 @@ private fun CategoryTabHeader(
                 // Scroll to clicked item when the item is not fully inside view.
                 scope.launch {
                   val visibleItems = listState.layoutInfo.visibleItemsInfo
-                  val targetItem = visibleItems.find {
-                    // +1 because the first item is the item keyed at spacer_start.
-                    it.index == index + 1
-                  }
+                  val targetItem =
+                    visibleItems.find {
+                      // +1 because the first item is the item keyed at spacer_start.
+                      it.index == index + 1
+                    }
                   if (
                     targetItem == null ||
                       targetItem.offset < 0 ||
